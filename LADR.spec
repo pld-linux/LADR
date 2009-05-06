@@ -6,7 +6,7 @@
 Summary:	Library for Automated Deduction Research
 Name:		LADR
 Version:	%(echo %{LADRver} | tr '-' .)
-Release:	0.1
+Release:	1
 License:	GPL v2
 Group:		Libraries
 Source0:	http://www.cs.unm.edu/~mccune/mace4/download/%{name}-%{LADRver}.tar.gz
@@ -81,7 +81,8 @@ This package provides miscellaneous LADR applications.
 
 %prep
 %setup -q -n %{name}-%{LADRver}
-install %{SOURCE1} Llibtoolize
+sed 's|/usr/lib|%{_libdir}|g' %{SOURCE1} > Llibtoolize
+chmod 755 Llibtoolize
 ./Llibtoolize --patch .
 
 %build
