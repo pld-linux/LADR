@@ -1,0 +1,93 @@
+#!/bin/sh -e
+# 01-libtoolise.dpatch by Peter Collingbourne <peter@peter.uk.to>
+# DP: Libtoolises the makefiles, removes -lm where not necessary.
+# DP: Original version by Heinz Wiesinger <pprkut@liwjatan.at>
+
+PATCHED_DIRS=". apps.src ladr mace4.src provers.src test.src"
+
+if [ "x$2" = "x" ]; then
+  DIR=.
+else
+  DIR="$2"
+fi
+
+# $1 = path to source directory ($DIR)
+do_patch(){
+  sed -i "s/\$(MAKE) lib/\$(MAKE) lib XFLAGS+=-D_REENTRANT/" "$1/Makefile"
+
+  for i in apps.src mace4.src; do
+    sed -i "s|/bin/mv|libtool --mode=install /bin/cp|" "$1/$i/Makefile"
+  done
+
+  for i in apps.src mace4.src provers.src; do
+    sed -i "s| ../bin| \`pwd\`/../bin|" "$1/$i/Makefile"
+  done
+
+  for i in apps.src ladr mace4.src provers.src test.src; do
+    if [ "$i" = "provers.src" ]; then
+      sed -i "s|/bin/rm -f \*.o|libtool --mode=clean /bin/rm -f \*.o|g" "$1/$i/Makefile"
+      sed -i "s|/bin/cp|libtool --mode=install /bin/cp|" "$1/$i/Makefile"
+    else
+      sed -i "s|/bin/rm -f|libtool --mode=clean /bin/rm -f|g" "$1/$i/Makefile"
+    fi
+
+    if [ "$i" = "mace4.src" ]; then
+      sed -i "s/libladr.a/libladr.la/" "$1/$i/Makefile"
+    else
+      sed -i "s/\.a/\.la/g" "$1/$i/Makefile"
+    fi
+
+    if [ "$i" = "ladr" ]; then
+      sed -i "s/\.o/\.lo/g" "$1/$i/Makefile"
+    else
+      sed -i "s/\$(CC)/libtool --mode=link --tag=CC \$(CC) \$(LDFLAGS)/" "$1/$i/Makefile"
+    fi
+  done
+
+  sed -i "s/-lm //" "$1/provers.src/Makefile"
+
+  patch -p1 -d "$1" <<"EOP"
+diff -U 3 -H -b -B -d -r -N -- LADR-2008-06A-orig/ladr/Makefile LADR-2008-06A/ladr/Makefile
+--- LADR-2008-06A-orig/ladr/Makefile	2008-06-12 16:39:09.000000000 +0200
++++ LADR-2008-06A/ladr/Makefile	2008-08-03 15:23:06.214318210 +0200
+@@ -36,7 +36,10 @@
+           $(INFE_OBJ) $(MODL_OBJ) $(MISC_OBJ)
+
+ libladr.la: $(OBJECTS)
+-	$(AR) rs libladr.la $(OBJECTS)
++	libtool --mode=link --tag=CC $(CC) $(LDFLAGS) -rpath /usr/lib -version-info 4:0:0 -o libladr.la $(OBJECTS) -lm
++
++%.lo: %.c
++	libtool --mode=compile --tag=CC $(CC) -c $(CFLAGS) $(XFLAGS) -o $@ $<
+
+ ##############################################################################
+
+EOP
+
+}
+
+# $1 = path to source directory ($DIR)
+# $2 = from
+# $3 = to
+move_makefiles(){
+  if [ "$2" = "Makefile" ]; then
+    CMD="cp"
+  else
+    CMD="mv"
+  fi
+  for i in . apps.src ladr mace4.src provers.src test.src; do
+    $CMD "$1/$i/$2" "$1/$i/$3"
+  done
+
+}
+
+if [ "$1" = "-patch" ]; then
+  move_makefiles $DIR "Makefile" "Makefile.pre-libtool-patch"
+  do_patch $DIR
+elif [ "$1" = "-unpatch" ]; then
+  move_makefiles $DIR "Makefile.pre-libtool-patch" "Makefile"
+elif [ "$1" = "--patch" ]; then
+  do_patch $DIR
+else
+  echo "Unrecognised parameter: $1"
+fi
