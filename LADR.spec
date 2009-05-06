@@ -86,7 +86,7 @@ chmod 755 Llibtoolize
 ./Llibtoolize --patch .
 
 %build
-%{__make} all \
+%{__make} -j1 all \
 	CFLAGS="%{rpmcflags}" \
 	LDFLAGS="%{rpmldflags}"
 
